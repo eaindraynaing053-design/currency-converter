@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Currency Converter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="card">
+    <h1>Currency Converter</h1>
+
+    <form id="form" novalidate>
+      <div class="field">
+        <label for="amount">Amount</label>
+        <input id="amount" type="number" inputmode="decimal" min="0" step="any" value="1" placeholder="e.g. 100">
+        <p class="field-error" id="amount-error" role="alert"></p>
+      </div>
+
+      <div class="pair">
+        <div class="field">
+          <label for="from">From</label>
+          <select id="from" disabled></select>
+        </div>
+        <button type="button" id="swap" class="swap" aria-label="Swap currencies" title="Swap currencies">⇄</button>
+        <div class="field">
+          <label for="to">To</label>
+          <select id="to" disabled></select>
+        </div>
+      </div>
+      <p class="field-error" id="pair-error" role="alert"></p>
+
+      <button type="submit" id="convert" class="primary" disabled>Convert</button>
+    </form>
+
+    <section id="result" aria-live="polite">
+      <div id="state-empty" class="state">Enter an amount and choose two currencies to see the result.</div>
+      <div id="state-loading" class="state" hidden><span class="spinner"></span> Loading…</div>
+      <div id="state-error" class="state error" hidden></div>
+      <div id="output" hidden>
+        <p class="big" id="out-main"></p>
+        <p class="meta" id="out-rate"></p>
+        <p class="meta" id="out-date"></p>
+      </div>
+    </section>
+
+    <section id="history">
+      <h2>Last 30 days</h2>
+      <div id="h-empty" class="state">Rate history will appear here after a conversion.</div>
+      <div id="h-loading" class="state" hidden><span class="spinner"></span> Loading history…</div>
+      <div id="h-error" class="state error" hidden></div>
+      <div id="h-content" hidden>
+        <div class="chart-wrap"><canvas id="chart"></canvas></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Rate</th></tr></thead>
+            <tbody id="h-body"></tbody>
+          </table>
+        </div>5
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
