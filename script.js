@@ -1,389 +1,525 @@
 
-const form = document.getElementById("form");
+"use strict";
 
-const amountInput = document.getElementById("amount");
-const fromSelect = document.getElementById("from");
-const toSelect = document.getElementById("to");
+const API = "https://api.frankfurter.dev/v2";
 
-const swapButton = document.getElementById("swap");
-const convertButton = document.getElementById("convert");
+const $ = (id) => document.getElementById(id);
 
-const amountError = document.getElementById("amount-error");
-const pairError = document.getElementById("pair-error");
+const form = $("form");
+const amountInput = $("amount");
+const amountSymbol = $("amount-symbol");
+const amountError = $("amount-error");
+const fromSelect = $("from");
+const toSelect = $("to");
+const swapButton = $("swap");
+const convertButton = $("convert");
 
-const stateEmpty = document.getElementById("state-empty");
-const stateLoading = document.getElementById("state-loading");
-const stateError = document.getElementById("state-error");
+const loadingState = $("state-loading");
+const errorState = $("state-error");
+const errorMessage = $("error-message");
+const emptyState = $("state-empty");
+const output = $("output");
 
-const output = document.getElementById("output");
-const outMain = document.getElementById("out-main");
-const outRate = document.getElementById("out-rate");
-const outDate = document.getElementById("out-date");
+const outPair = $("out-pair");
+const outMain = $("out-main");
+const outRate = $("out-rate");
+const outDate = $("out-date");
+const fromFlag = $("from-flag");
 
-const historyEmpty = document.getElementById("h-empty");
-const historyLoading = document.getElementById("h-loading");
-const historyError = document.getElementById("h-error");
-const historyContent = document.getElementById("h-content");
-const historyBody = document.getElementById("h-body");
+const historyLoading = $("h-loading");
+const historyError = $("h-error");
+const historyEmpty = $("h-empty");
+const historyContent = $("h-content");
+const historyBody = $("h-body");
+const historyPairLabel = $("history-pair-label");
 
-let chart = null;
-let requestId = 0;
+const currencySymbols = {
+  USD: "$", EUR: "€", GBP: "£", JPY: "¥", CNY: "¥",
+  KRW: "₩", THB: "฿", SGD: "S$", MYR: "RM", INR: "₹",
+  AUD: "A$", CAD: "C$", CHF: "Fr", HKD: "HK$",
+  NZD: "NZ$", IDR: "Rp", PHP: "₱", VND: "₫",
+  BRL: "R$", TRY: "₺", MMK: "K"
+};
 
+const flags = {
+  USD: "🇺🇸", EUR: "🇪🇺", GBP: "🇬🇧", JPY: "🇯🇵",
+  CNY: "🇨🇳", KRW: "🇰🇷", THB: "🇹🇭", SGD: "🇸🇬",
+  MYR: "🇲🇾", INR: "🇮🇳", AUD: "🇦🇺", CAD: "🇨🇦",
+  CHF: "🇨🇭", HKD: "🇭🇰", NZD: "🇳🇿", IDR: "🇮🇩",
+  PHP: "🇵🇭", VND: "🇻🇳", BRL: "🇧🇷", TRY: "🇹🇷",
+  MMK: "🇲🇲"
+};
 
-// 1. Load currencies
+let chartInstance = null;
+let conversionId = 0;
+let historyId = 0;
+
+function symbol(code) {
+  return currencySymbols[code] || code;
+}
+
+function number(value, digits = 4) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: digits
+  }).format(value);
+}
+
+function money(value, code) {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 4
+    }).format(value);
+  } catch {
+    return `${code} ${number(value)}`;
+  }
+}
+
+function dateLabel(date) {
+  if (!date) return "Unavailable";
+
+  const d = new Date(`${date}T00:00:00Z`);
+
+  return Number.isNaN(d.getTime())
+    ? date
+    : new Intl.DateTimeFormat("en-US", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC"
+      }).format(d);
+}
+
+async function getJSON(url) {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+function setConversionState(state, message = "") {
+  loadingState.hidden = state !== "loading";
+  errorState.hidden = state !== "error";
+  emptyState.hidden = state !== "empty";
+  output.hidden = state !== "success";
+
+  if (message && state === "error") {
+    errorMessage.textContent = message;
+  }
+
+  if (message && state === "empty") {
+    emptyState.textContent = message;
+  }
+}
+
+function setHistoryState(state, message = "") {
+  historyLoading.hidden = state !== "loading";
+  historyError.hidden = state !== "error";
+  historyEmpty.hidden = state !== "empty";
+  historyContent.hidden = state !== "success";
+
+  if (message && state === "error") {
+    historyError.textContent = message;
+  }
+
+  if (message && state === "empty") {
+    historyEmpty.textContent = message;
+  }
+}
+
+function populateCurrencies(currencies, select, defaultCode) {
+  select.replaceChildren();
+
+  currencies.forEach((currency) => {
+    const option = document.createElement("option");
+    option.value = currency.iso_code;
+    option.textContent = `${currency.iso_code} — ${currency.name}`;
+    select.appendChild(option);
+  });
+
+  select.value = currencies.some((c) => c.iso_code === defaultCode)
+    ? defaultCode
+    : currencies[0]?.iso_code || "";
+}
+
+function updateSymbol() {
+  amountSymbol.textContent = symbol(fromSelect.value);
+}
 
 async function loadCurrencies() {
-    try {
-        const response = await fetch(
-            "https://api.frankfurter.dev/v2/currencies"
-        );
+  fromSelect.disabled = true;
+  toSelect.disabled = true;
+  convertButton.disabled = true;
 
-        if (!response.ok) {
-            throw new Error("Failed to load currencies");
-        }
+  try {
+    const data = await getJSON(`${API}/currencies`);
 
-        const currencies = await response.json();
-
-        currencies.sort((a, b) =>
-            a.iso_code.localeCompare(b.iso_code)
-        );
-
-        fromSelect.innerHTML = "";
-        toSelect.innerHTML = "";
-
-        currencies.forEach(currency => {
-            const option1 = document.createElement("option");
-
-            option1.value = currency.iso_code;
-            option1.textContent =
-                `${currency.iso_code} - ${currency.name}`;
-
-            const option2 = option1.cloneNode(true);
-
-            fromSelect.appendChild(option1);
-            toSelect.appendChild(option2);
-        });
-
-        fromSelect.value = "USD";
-        toSelect.value = "THB";
-
-        fromSelect.disabled = false;
-        toSelect.disabled = false;
-        swapButton.disabled = false;
-        convertButton.disabled = false;
-
-        stateEmpty.hidden = false;
-        stateError.hidden = true;
-
-    } catch (error) {
-        console.error("Currency error:", error);
-
-        stateEmpty.hidden = true;
-        stateError.textContent =
-            "Unable to load currencies. Please check your internet.";
-        stateError.hidden = false;
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("The currency list is empty.");
     }
+
+    data.sort((a, b) => a.iso_code.localeCompare(b.iso_code));
+
+    populateCurrencies(data, fromSelect, "USD");
+    populateCurrencies(data, toSelect, "EUR");
+
+    fromSelect.disabled = false;
+    toSelect.disabled = false;
+    convertButton.disabled = false;
+
+    updateSymbol();
+
+    await Promise.all([
+      convertCurrency(),
+      loadHistory()
+    ]);
+  } catch (error) {
+    setConversionState("error",
+      `Could not load currencies. Check your internet connection. ${error.message}`);
+    setHistoryState("error", "Could not load currency data.");
+  }
 }
-
-
-// 2. Validate input
-
-function validateInput() {
-    amountError.textContent = "";
-    pairError.textContent = "";
-
-    const amountText = amountInput.value.trim();
-
-    if (amountText === "") {
-        amountError.textContent = "Please enter an amount.";
-        return false;
-    }
-
-    const amount = Number(amountText);
-
-    if (!Number.isFinite(amount) || amount < 0) {
-        amountError.textContent =
-            "Please enter a valid non-negative amount.";
-        return false;
-    }
-
-    if (fromSelect.value === toSelect.value) {
-        pairError.textContent =
-            "Please select two different currencies.";
-        return false;
-    }
-
-    return true;
-}
-
-
-// 3. Convert currency
 
 async function convertCurrency() {
-    if (!validateInput()) {
-        return;
+  const id = ++conversionId;
+  const from = fromSelect.value;
+  const to = toSelect.value;
+  const amountText = amountInput.value.trim();
+  const amount = Number(amountText);
+
+  amountError.textContent = "";
+
+  const pairError = $("pair-error");
+  if (pairError) pairError.textContent = "";
+
+  updateSymbol();
+
+  if (!from || !to) {
+    setConversionState("empty", "Choose both currencies.");
+    return;
+  }
+
+  if (
+    amountText === "" ||
+    !Number.isFinite(amount) ||
+    amount < 0
+  ) {
+    amountError.textContent = "Enter a valid amount (zero or greater).";
+    setConversionState("empty", "Enter a valid amount to convert.");
+    return;
+  }
+
+  setConversionState("loading");
+  convertButton.disabled = true;
+
+  try {
+    let rate;
+    let date;
+
+    if (from === to) {
+      rate = 1;
+      date = new Date().toISOString().slice(0, 10);
+    } else {
+      const data = await getJSON(
+        `${API}/rate/${encodeURIComponent(from.toLowerCase())}/${encodeURIComponent(to.toLowerCase())}`
+      );
+
+      rate = Number(data.rate);
+      date = data.date;
+
+      if (!Number.isFinite(rate)) {
+        throw new Error("The API returned an invalid rate.");
+      }
     }
 
-    const currentRequest = ++requestId;
+    if (id !== conversionId) return;
 
-    const amount = Number(amountInput.value);
-    const from = fromSelect.value;
-    const to = toSelect.value;
+    outPair.textContent = `${from} → ${to}`;
+    outMain.textContent = money(amount * rate, to);
+    outRate.textContent = `1 ${from} = ${number(rate, 6)} ${to}`;
+    outDate.textContent = dateLabel(date);
+    fromFlag.textContent = flags[from] || "🌐";
 
-    stateEmpty.hidden = true;
-    stateError.hidden = true;
-    output.hidden = true;
-    stateLoading.hidden = false;
-
-    historyEmpty.hidden = true;
-    historyError.hidden = true;
-    historyContent.hidden = true;
-    historyLoading.hidden = true;
-
-    try {
-        const url =
-            `https://api.frankfurter.dev/v2/rate/` +
-            `${from.toLowerCase()}/${to.toLowerCase()}`;
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error("Unable to fetch exchange rate");
-        }
-
-        const data = await response.json();
-
-        if (currentRequest !== requestId) return;
-
-        const rate = Number(data.rate);
-
-        if (!Number.isFinite(rate)) {
-            throw new Error("Invalid exchange rate");
-        }
-
-        const convertedAmount = amount * rate;
-
-        outMain.textContent =
-            `${convertedAmount.toLocaleString(undefined, {
-                maximumFractionDigits: 4
-            })} ${to}`;
-
-        outRate.textContent =
-            `1 ${from} = ${rate} ${to}`;
-
-        outDate.textContent = `Rate date: ${data.date}`;
-
-        output.hidden = false;
-
-        await loadHistory(from, to, currentRequest);
-
-    } catch (error) {
-        if (currentRequest !== requestId) return;
-
-        console.error("Conversion error:", error);
-
-        stateError.textContent =
-            "Unable to fetch exchange rate. Please try again.";
-        stateError.hidden = false;
-
-    } finally {
-        if (currentRequest === requestId) {
-            stateLoading.hidden = true;
-        }
+    setConversionState("success");
+  } catch (error) {
+    if (id === conversionId) {
+      setConversionState("error",
+        `Unable to retrieve the exchange rate. ${error.message}`);
     }
+  } finally {
+    if (id === conversionId) {
+      convertButton.disabled = false;
+    }
+  }
 }
 
+function buildHistoryURL(from, to, startDate, endDate) {
+  const params = new URLSearchParams({
+    base: from,
+    quotes: to,
+    from: startDate,
+    to: endDate
+  });
 
-// 4. Swap currencies
+  return `${API}/rates?${params.toString()}`;
+}
 
-swapButton.addEventListener("click", () => {
-    const oldFrom = fromSelect.value;
+async function loadHistory() {
+  const id = ++historyId;
+  const from = fromSelect.value;
+  const to = toSelect.value;
 
-    fromSelect.value = toSelect.value;
-    toSelect.value = oldFrom;
+  if (!from || !to) {
+    setHistoryState("empty", "Choose currencies to view rate history.");
+    return;
+  }
 
-    if (amountInput.value.trim() !== "") {
-        convertCurrency();
+  historyPairLabel.textContent = `${from} → ${to}`;
+  setHistoryState("loading");
+
+  try {
+    let points;
+
+    if (from === to) {
+      points = [{
+        date: new Date().toISOString().slice(0, 10),
+        rate: 1
+      }];
+    } else {
+      const end = new Date();
+      const start = new Date();
+
+      // Approximately 90 days of history.
+      start.setUTCDate(start.getUTCDate() - 90);
+
+      const startDate = start.toISOString().slice(0, 10);
+      const endDate = end.toISOString().slice(0, 10);
+
+      const url = buildHistoryURL(from, to, startDate, endDate);
+      const data = await getJSON(url);
+
+      if (!Array.isArray(data)) {
+        throw new Error("Unexpected historical data format.");
+      }
+
+      points = data
+        .map((item) => ({
+          date: item.date,
+          rate: Number(item.rate)
+        }))
+        .filter((item) =>
+          item.date && Number.isFinite(item.rate)
+        )
+        .sort((a, b) => a.date.localeCompare(b.date));
     }
+
+    if (id !== historyId) return;
+
+    if (!points.length) {
+      setHistoryState("empty",
+        "No historical rates were returned for this currency pair and date range.");
+      return;
+    }
+
+    // Reveal the chart container before measuring its dimensions.
+    setHistoryState("success");
+
+    // Wait one frame so the chart container is laid out.
+    requestAnimationFrame(() => {
+      if (id === historyId) {
+        drawChart(points, from, to);
+      }
+    });
+
+    renderHistoryTable(points, from, to);
+  } catch (error) {
+    if (id !== historyId) return;
+
+    setHistoryState("error",
+      `History could not load: ${error.message}. Check the API request or try another pair.`);
+  }
+}
+
+function drawChart(points, from, to) {
+  const canvas = $("chart");
+
+  if (!canvas) {
+    setHistoryState("error", "Chart canvas was not found in index.html.");
+    return;
+  }
+
+  if (typeof Chart === "undefined") {
+    setHistoryState("error",
+      "Chart.js did not load. Check your internet connection or Chart.js CDN.");
+    return;
+  }
+
+  if (chartInstance) {
+    chartInstance.destroy();
+    chartInstance = null;
+  }
+
+  const context = canvas.getContext("2d");
+  const gradient = context.createLinearGradient(0, 0, 0, 300);
+
+  gradient.addColorStop(0, "rgba(84, 229, 255, 0.30)");
+  gradient.addColorStop(1, "rgba(84, 229, 255, 0.01)");
+
+  chartInstance = new Chart(context, {
+    type: "line",
+    data: {
+      labels: points.map((p) => p.date),
+      datasets: [{
+        label: `${from} → ${to}`,
+        data: points.map((p) => p.rate),
+        borderColor: "#54e5ff",
+        backgroundColor: gradient,
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.3,
+        pointRadius: points.length > 35 ? 0 : 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: "#a5f5ff",
+        pointBorderColor: "#121a31",
+        pointBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 700
+      },
+      interaction: {
+        intersect: false,
+        mode: "index"
+      },
+      plugins: {
+        legend: {
+          display: true,
+          labels: {
+            color: "#dce7ff",
+            usePointStyle: true,
+            boxWidth: 8,
+            padding: 20
+          }
+        },
+        tooltip: {
+          backgroundColor: "#141c34",
+          titleColor: "#ffffff",
+          bodyColor: "#54e5ff",
+          borderColor: "rgba(84, 229, 255, 0.3)",
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label(context) {
+              return `1 ${from} = ${number(context.parsed.y, 6)} ${to}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: {
+            display: false
+          },
+          ticks: {
+            color: "#98a5c3",
+            maxTicksLimit: 7,
+            maxRotation: 0,
+            callback(value) {
+              const date = this.getLabelForValue(value);
+              return date.slice(5);
+            }
+          },
+          border: {
+            color: "rgba(166, 184, 229, 0.15)"
+          }
+        },
+        y: {
+          grid: {
+            color: "rgba(166, 184, 229, 0.10)"
+          },
+          ticks: {
+            color: "#98a5c3",
+            maxTicksLimit: 6,
+            callback(value) {
+              return number(Number(value), 4);
+            }
+          },
+          border: {
+            display: false
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderHistoryTable(points, from, to) {
+  historyBody.replaceChildren();
+
+  [...points].reverse().slice(0, 10).forEach((point) => {
+    const row = document.createElement("tr");
+
+    const dateCell = document.createElement("td");
+    dateCell.textContent = dateLabel(point.date);
+
+    const pairCell = document.createElement("td");
+    pairCell.textContent = `${from} → ${to}`;
+
+    const rateCell = document.createElement("td");
+    rateCell.textContent = `1 ${from} = ${number(point.rate, 6)} ${to}`;
+
+    row.append(dateCell, pairCell, rateCell);
+    historyBody.appendChild(row);
+  });
+}
+
+/* Events */
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await convertCurrency();
 });
 
+swapButton.addEventListener("click", async () => {
+  const previousFrom = fromSelect.value;
+  fromSelect.value = toSelect.value;
+  toSelect.value = previousFrom;
 
-// 5. Submit form
+  updateSymbol();
 
-form.addEventListener("submit", event => {
-    event.preventDefault();
-    convertCurrency();
+  await Promise.all([
+    convertCurrency(),
+    loadHistory()
+  ]);
 });
-
-
-// 6. Automatically convert when values change
 
 fromSelect.addEventListener("change", () => {
-    if (amountInput.value.trim() !== "") {
-        convertCurrency();
-    }
+  updateSymbol();
+
+  Promise.all([
+    convertCurrency(),
+    loadHistory()
+  ]);
 });
 
 toSelect.addEventListener("change", () => {
-    if (amountInput.value.trim() !== "") {
-        convertCurrency();
-    }
+  Promise.all([
+    convertCurrency(),
+    loadHistory()
+  ]);
 });
 
 amountInput.addEventListener("input", () => {
-    if (amountInput.value.trim() !== "") {
-        convertCurrency();
-    }
+  amountError.textContent = "";
 });
 
-
-// 7. Get date 30 days ago
-
-function getDate30DaysAgo() {
-    const date = new Date();
-
-    date.setDate(date.getDate() - 30);
-
-    return date.toISOString().split("T")[0];
-}
-
-
-// 8. Load 30-day exchange-rate history
-
-async function loadHistory(from, to, currentRequest) {
-    historyEmpty.hidden = true;
-    historyError.hidden = true;
-    historyContent.hidden = true;
-    historyLoading.hidden = false;
-
-    try {
-        const startDate = getDate30DaysAgo();
-        const endDate = new Date().toISOString().split("T")[0];
-
-        const url =
-            `https://api.frankfurter.dev/v2/rates?` +
-            `from=${startDate}&to=${endDate}` +
-            `&base=${from}&quotes=${to}`;
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error("Failed to load history");
-        }
-
-        const data = await response.json();
-
-        if (currentRequest !== requestId) return;
-
-        const history = data
-            .filter(item =>
-                item.base === from && item.quote === to
-            )
-            .sort((a, b) => a.date.localeCompare(b.date));
-
-        if (history.length === 0) {
-            historyEmpty.textContent =
-                "No rate history available for this period.";
-            historyEmpty.hidden = false;
-            return;
-        }
-
-        historyBody.innerHTML = "";
-
-        history.forEach(item => {
-            const row = document.createElement("tr");
-
-            const dateCell = document.createElement("td");
-            dateCell.textContent = item.date;
-
-            const rateCell = document.createElement("td");
-            rateCell.textContent =
-                Number(item.rate).toFixed(4);
-
-            row.appendChild(dateCell);
-            row.appendChild(rateCell);
-
-            historyBody.appendChild(row);
-        });
-
-        historyContent.hidden = false;
-
-        createChart(
-            history.map(item => item.date),
-            history.map(item => Number(item.rate)),
-            from,
-            to
-        );
-
-    } catch (error) {
-        if (currentRequest !== requestId) return;
-
-        console.error("History error:", error);
-
-        historyError.textContent =
-            "Unable to load rate history.";
-        historyError.hidden = false;
-
-    } finally {
-        if (currentRequest === requestId) {
-            historyLoading.hidden = true;
-        }
-    }
-}
-
-
-// 9. Create line chart
-
-function createChart(dates, rates, from, to) {
-    const canvas = document.getElementById("chart");
-
-    if (!canvas || typeof Chart === "undefined") {
-        console.error("Chart.js or chart canvas is missing.");
-        return;
-    }
-
-    const ctx = canvas.getContext("2d");
-
-    if (chart) {
-        chart.destroy();
-    }
-
-    chart = new Chart(ctx, {
-        type: "line",
-
-        data: {
-            labels: dates,
-
-            datasets: [{
-                label: `${from} to ${to}`,
-                data: rates,
-                borderWidth: 2,
-                pointRadius: 2,
-                tension: 0.3,
-                fill: false
-            }]
-        },
-
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-
-            scales: {
-                y: {
-                    beginAtZero: false
-                }
-            },
-
-            plugins: {
-                legend: {
-                    display: true
-                }
-            }
-        }
-    });
-}
-
-
-// 10. Start the application
+/* Start */
 
 loadCurrencies();
