@@ -1,67 +1,411 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Currency Converter</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="theme-color" content="#080b18">
+  <meta name="description" content="CurrencyFlow — a modern currency converter with live exchange rates and rate history.">
+
+  <title>CurrencyFlow — Smart Currency Converter</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="./style.css">
+
+  <!-- JavaScript -->
+  <script src="./script.js" defer></script>
 </head>
+
 <body>
-  <main class="card">
-    <h1>Currency Converter</h1>
+  <div class="site-background" aria-hidden="true">
+    <div class="background-grid"></div>
+    <div class="background-glow glow-one"></div>
+    <div class="background-glow glow-two"></div>
+    <div class="background-glow glow-three"></div>
 
-    <form id="form" novalidate>
-      <div class="field">
-        <label for="amount">Amount</label>
-        <input id="amount" type="number" inputmode="decimal" min="0" step="any" value="1" placeholder="e.g. 100">
-        <p class="field-error" id="amount-error" role="alert"></p>
+    <div class="floating-coin coin-one">$</div>
+    <div class="floating-coin coin-two">€</div>
+    <div class="floating-coin coin-three">¥</div>
+    <div class="floating-coin coin-four">£</div>
+  </div>
+
+  <header class="navbar">
+    <a href="#" class="brand" aria-label="CurrencyFlow home">
+      <span class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 8h14m0 0-4-4m4 4-4 4M20 16H6m0 0 4 4m-4-4 4-4"
+            stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>Currency<span class="brand-accent">Flow</span></span>
+    </a>
+
+    <nav class="nav-links" aria-label="Main navigation">
+      <a href="#converter">Converter</a>
+      <a href="#history">Rate History</a>
+    </nav>
+
+    <a href="#converter" class="nav-cta">
+      Start converting <span>↗</span>
+    </a>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">
+          <span class="status-dot"></span>
+          SMART CURRENCY CONVERSION
+        </div>
+
+        <h1>
+          Money moves.<br>
+          <span class="gradient-text">Your world expands.</span>
+        </h1>
+
+        <p class="hero-description">
+          Convert currencies with confidence. Explore exchange rates
+          and track historical trends in one beautiful workspace.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#converter" class="primary-link">
+            Explore converter <span>→</span>
+          </a>
+          <div class="live-indicator">
+            <span class="live-dot"></span>
+            Exchange rates via Frankfurter
+          </div>
+        </div>
+
+        <div class="hero-highlights">
+          <div class="highlight">
+            <span class="highlight-icon">↗</span>
+            <div>
+              <strong>Clear rates</strong>
+              <span>Easy to understand</span>
+            </div>
+          </div>
+
+          <div class="highlight">
+            <span class="highlight-icon">⌁</span>
+            <div>
+              <strong>Rate history</strong>
+              <span>Visual trends</span>
+            </div>
+          </div>
+
+          <div class="highlight">
+            <span class="highlight-icon">◎</span>
+            <div>
+              <strong>Simple interface</strong>
+              <span>Made for everyone</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="pair">
-        <div class="field">
-          <label for="from">From</label>
-          <select id="from" disabled></select>
-        </div>
-        <button type="button" id="swap" class="swap" aria-label="Swap currencies" title="Swap currencies">⇄</button>
-        <div class="field">
-          <label for="to">To</label>
-          <select id="to" disabled></select>
-        </div>
-      </div>
-      <p class="field-error" id="pair-error" role="alert"></p>
+      <!-- 3D currency artwork -->
+      <div class="hero-visual" aria-label="Decorative three-dimensional currency artwork">
+        <div class="visual-orbit orbit-one"></div>
+        <div class="visual-orbit orbit-two"></div>
+        <div class="visual-orbit orbit-three"></div>
 
-      <button type="submit" id="convert" class="primary" disabled>Convert</button>
-    </form>
+        <div class="visual-glow"></div>
 
-    <section id="result" aria-live="polite">
-      <div id="state-empty" class="state">Enter an amount and choose two currencies to see the result.</div>
-      <div id="state-loading" class="state" hidden><span class="spinner"></span> Loading…</div>
-      <div id="state-error" class="state error" hidden></div>
-      <div id="output" hidden>
-        <p class="big" id="out-main"></p>
-        <p class="meta" id="out-rate"></p>
-        <p class="meta" id="out-date"></p>
+        <div class="currency-art">
+          <div class="currency-coin coin-euro">€</div>
+          <div class="currency-coin coin-dollar">$</div>
+          <div class="currency-coin coin-yen">¥</div>
+          <div class="currency-coin coin-pound">£</div>
+        </div>
+
+        <div class="visual-card visual-card-top">
+          <span class="mini-card-icon">↗</span>
+          <div>
+            <small>Smart conversion</small>
+            <strong>Global currency</strong>
+          </div>
+        </div>
+
+        <div class="visual-card visual-card-bottom">
+          <span class="mini-chart">▂▅▃▆▅█</span>
+          <div>
+            <small>Market insights</small>
+            <strong>Track the trend</strong>
+          </div>
+        </div>
+
+        <div class="visual-label">CURRENCY WITHOUT BORDERS</div>
       </div>
     </section>
 
-    <section id="history">
-      <h2>Last 30 days</h2>
-      <div id="h-empty" class="state">Rate history will appear here after a conversion.</div>
-      <div id="h-loading" class="state" hidden><span class="spinner"></span> Loading history…</div>
-      <div id="h-error" class="state error" hidden></div>
-      <div id="h-content" hidden>
-        <div class="chart-wrap"><canvas id="chart"></canvas></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Date</th><th>Rate</th></tr></thead>
-            <tbody id="h-body"></tbody>
-          </table>
-        </div>5
+    <!-- Converter -->
+    <section class="converter-section" id="converter">
+      <div class="section-heading">
+        <div>
+          <div class="section-kicker">YOUR CONVERSION STUDIO</div>
+          <h2>Convert with clarity<span class="heading-period">.</span></h2>
+          <p>Choose your currencies and calculate an exchange.</p>
+        </div>
+
+        <div class="rate-badge">
+          <span class="status-dot"></span>
+          Powered by Frankfurter API
+        </div>
       </div>
+
+      <div class="converter-card">
+        <div class="converter-topline">
+          <span class="card-label">CURRENCY CONVERTER</span>
+          <span class="secure-label"><span>✦</span> Simple & transparent</span>
+        </div>
+
+        <form id="form" novalidate>
+          <div class="conversion-fields">
+            <div class="field-group">
+              <label for="amount">You send</label>
+
+              <div class="amount-control">
+                <span id="amount-symbol" class="amount-symbol">$</span>
+                <input
+                  id="amount"
+                  name="amount"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value="100"
+                  placeholder="Enter amount"
+                  inputmode="decimal"
+                  required
+                >
+              </div>
+
+              <small id="amount-error" class="field-error" aria-live="polite"></small>
+
+              <div class="currency-select-wrap">
+                <label for="from" class="sr-only">From currency</label>
+                <select id="from" name="from" aria-label="From currency">
+                  <option value="USD">Loading currencies...</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="swap-column">
+              <span class="swap-caption">EXCHANGE</span>
+              <button
+                id="swap"
+                class="swap-button"
+                type="button"
+                aria-label="Swap currencies"
+                title="Swap currencies"
+              >
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M7 7h13m0 0-4-4m4 4-4 4M17 17H4m0 0 4-4m-4 4 4 4"
+                    stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+
+            <div class="field-group">
+              <label for="to">You receive</label>
+
+              <div class="amount-control receive-amount-control">
+                <span class="amount-symbol">↘</span>
+                <div class="receive-placeholder">Converted amount</div>
+              </div>
+
+              <div class="currency-select-wrap">
+                <label for="to" class="sr-only">To currency</label>
+                <select id="to" name="to" aria-label="To currency">
+                  <option value="EUR">Loading currencies...</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <small id="pair-error" class="field-error" aria-live="polite"></small>
+
+          <div class="converter-bottom">
+            <p class="conversion-note">
+              <span class="info-icon">i</span>
+              Exchange rates are informational and may differ from bank rates.
+            </p>
+
+            <button id="convert" class="convert-button" type="submit">
+              <span class="button-text">Convert currency</span>
+              <span class="button-arrow">↗</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Loading state -->
+        <div id="state-loading" class="state-message" hidden aria-live="polite">
+          <span class="loading-spinner"></span>
+          <span>Fetching the latest available exchange rate...</span>
+        </div>
+
+        <!-- Error state -->
+        <div id="state-error" class="state-message error-state" hidden role="alert">
+          <span class="state-icon">!</span>
+          <div>
+            <strong>Unable to load exchange rate</strong>
+            <p id="error-message">Please try again.</p>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="state-empty" class="state-message empty-state" hidden>
+          <span class="state-icon">↗</span>
+          <span>Enter an amount and select your currencies to get started.</span>
+        </div>
+
+        <!-- Result -->
+        <div id="output" class="result-panel" hidden aria-live="polite">
+          <div class="result-divider"></div>
+
+          <div class="result-header">
+            <div>
+              <span class="result-overline">CONVERSION RESULT</span>
+              <h3>Your money, <span>reimagined.</span></h3>
+            </div>
+            <span id="result-icon" class="result-check">✓</span>
+          </div>
+
+          <div class="result-main">
+            <div class="result-currency">
+              <span id="from-flag" class="currency-flag">🌐</span>
+              <span id="out-pair" class="result-pair">USD → EUR</span>
+            </div>
+
+            <div id="out-main" class="result-value">—</div>
+          </div>
+
+          <div class="result-details">
+            <div class="result-detail">
+              <span>Exchange rate</span>
+              <strong id="out-rate">—</strong>
+            </div>
+            <div class="result-detail">
+              <span>Rate date</span>
+              <strong id="out-date">—</strong>
+            </div>
+          </div>
+
+          <p class="result-disclaimer">
+            Rates are supplied by Frankfurter. The displayed rate date
+            indicates the latest available data returned by the API.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- History -->
+    <section id="history" class="history-section">
+      <div class="section-heading history-heading">
+        <div>
+          <div class="section-kicker">BEHIND THE NUMBERS</div>
+          <h2>Explore the history<span class="heading-period">.</span></h2>
+          <p>See how your selected currency pair has moved over time.</p>
+        </div>
+
+        <div class="history-period">
+          <span class="history-period-dot"></span>
+          Historical data
+        </div>
+      </div>
+
+      <div class="history-card">
+        <div class="history-card-header">
+          <div>
+            <span class="card-label">EXCHANGE RATE HISTORY</span>
+            <h3>Rate performance</h3>
+            <p id="history-pair-label">Select currencies to view history.</p>
+          </div>
+
+          <div class="history-symbol">⌁</div>
+        </div>
+
+        <div id="h-loading" class="history-state" hidden>
+          <span class="loading-spinner"></span>
+          Loading historical rates...
+        </div>
+
+        <div id="h-error" class="history-state error-state" hidden>
+          Unable to load historical rates. Try changing the currencies.
+        </div>
+
+        <div id="h-empty" class="history-state" hidden>
+          Historical data will appear after you select a currency pair.
+        </div>
+
+        <div id="h-content" hidden>
+          <div class="chart-wrap">
+            <canvas id="chart" aria-label="Historical exchange rate line chart" role="img"></canvas>
+          </div>
+
+          <div class="history-table-wrap">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th scope="col">Date</th>
+                  <th scope="col">Currency pair</th>
+                  <th scope="col">Exchange rate</th>
+                </tr>
+              </thead>
+              <tbody id="h-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="history-footer">
+          <span class="history-footer-icon">ⓘ</span>
+          <p>Historical rates are provided by Frankfurter. The API's latest available date may not be today's date.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="closing-banner">
+      <div class="closing-orb"></div>
+      <div class="closing-content">
+        <span class="section-kicker">YOUR WORLD IS CONNECTED</span>
+        <h2>Every currency tells a story.</h2>
+        <p>Make your next conversion a little clearer.</p>
+      </div>
+      <a href="#converter" class="closing-button">Convert now <span>↗</span></a>
     </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="script.js"></script>
+  <footer class="footer">
+    <a href="#" class="brand footer-brand">
+      <span class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 8h14m0 0-4-4m4 4-4 4M20 16H6m0 0 4 4m-4-4 4-4"
+            stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span>Currency<span class="brand-accent">Flow</span></span>
+    </a>
+
+    <p>Designed for a world without borders.</p>
+
+    <span class="footer-credit">
+      Built with HTML, CSS, JavaScript & Frankfurter API
+    </span>
+  </footer>
 </body>
 </html>
